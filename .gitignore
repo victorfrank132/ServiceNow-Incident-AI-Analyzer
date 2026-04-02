@@ -1,6 +1,6 @@
 # Environment & Credentials
-config/.env
-.env
+# config/.env - Tracked with redacted values  
+# .env - Tracked with redacted values
 .env.local
 .env.*.local
 
