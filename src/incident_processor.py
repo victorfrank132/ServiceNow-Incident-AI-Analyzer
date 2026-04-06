@@ -3,11 +3,13 @@
 import time
 import logging
 import json
-from typing import Optional, Dict, Any, Set
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any
 from pathlib import Path
 from src.servicenow_client import ServiceNowClient
 from src.incident_analyzer import IncidentAnalyzer
 from src.mock_kb import MockKnowledgeBase
+from src.splunk_client import SplunkClient
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ class IncidentProcessor:
         self,
         servicenow_client: ServiceNowClient,
         analyzer: IncidentAnalyzer,
+        splunk_client: Optional[SplunkClient] = None,
         auto_reassign: bool = True,
         auto_close: bool = True,
         rate_limit_delay: float = 1.0
@@ -35,6 +38,7 @@ class IncidentProcessor:
         """
         self.snow_client = servicenow_client
         self.analyzer = analyzer
+        self.splunk_client = splunk_client
         self.auto_reassign = auto_reassign
         self.auto_close = auto_close
         self.rate_limit_delay = rate_limit_delay
@@ -126,6 +130,7 @@ class IncidentProcessor:
             "closed": 0,
             "comments_posted": 0,
             "comments_skipped": 0,
+            "evidence_attached": 0,
             "errors": 0,
             "incidents": []
         }
@@ -149,6 +154,8 @@ class IncidentProcessor:
                         summary["reassigned"] += 1
                     if incident_result.get("closed"):
                         summary["closed"] += 1
+                    if incident_result.get("evidence_attached"):
+                        summary["evidence_attached"] += 1
                 else:
                     summary["errors"] += 1
 
@@ -188,7 +195,9 @@ class IncidentProcessor:
             "closed": False,
             "analysis": None,
             "error": None,
-            "comment_posted": False
+            "comment_posted": False,
+            "evidence": None,
+            "evidence_attached": False,
         }
 
         try:
@@ -196,8 +205,14 @@ class IncidentProcessor:
             state_display = result["state_name"]
             logger.info(f"Processing incident {incident_num} [State: {state_display}]")
 
+            evidence = self._retrieve_splunk_evidence(incident)
+            result["evidence"] = evidence
+
             # Analyze incident
-            analysis = self.analyzer.analyze_incident(incident)
+            analysis = self.analyzer.analyze_incident(
+                incident,
+                evidence_context=(evidence or {}).get("analysis_context", ""),
+            )
             result["analysis"] = analysis
 
             if not analysis or analysis.get("confidence", 0) < 60:
@@ -214,13 +229,20 @@ class IncidentProcessor:
                 result["success"] = True
                 # Still perform reassignment/closure if conditions met
             else:
+                if evidence and evidence.get("match_count"):
+                    result["evidence_attached"] = self._attach_splunk_evidence(incident_id, incident_num, evidence)
+
                 # First time analysis or significant confidence change - post comment
                 description = incident.get("description", "")
                 title = incident.get("short_description", "")
                 similar_incidents = self.kb.find_similar_incidents(description, title, limit=3)
 
                 # Format and add comment
-                comment = self.analyzer.format_analysis_comment(analysis, similar_incidents)
+                comment = self.analyzer.format_analysis_comment(
+                    analysis,
+                    similar_incidents,
+                    evidence_summary=evidence,
+                )
                 comment_success = self.snow_client.add_comment_to_incident(incident_id, comment)
 
                 if not comment_success:
@@ -260,6 +282,52 @@ class IncidentProcessor:
             result["error"] = str(e)
 
         return result
+
+    def _retrieve_splunk_evidence(self, incident: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Fetch Splunk evidence for an incident when Splunk is configured."""
+        if not self.splunk_client:
+            return None
+
+        evidence = self.splunk_client.find_relevant_logs(incident)
+        if evidence.get("error"):
+            logger.warning("Splunk evidence lookup failed for %s: %s", incident.get("number", "unknown"), evidence["error"])
+        elif evidence.get("match_count"):
+            logger.info(
+                "Retrieved %s Splunk evidence match(es) for %s using %s search",
+                evidence["match_count"],
+                incident.get("number", "unknown"),
+                evidence.get("search_mode", "unknown"),
+            )
+        else:
+            logger.info("No Splunk evidence found for %s", incident.get("number", "unknown"))
+
+        return evidence
+
+    def _attach_splunk_evidence(self, incident_id: str, incident_num: str, evidence: Dict[str, Any]) -> bool:
+        """Attach Splunk evidence report to the incident and add a work note."""
+        report_text = evidence.get("report_text", "")
+        if not report_text:
+            return False
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        file_name = f"splunk_evidence_{incident_num}_{timestamp}.txt"
+        upload_success = self.snow_client.upload_attachment_to_incident(
+            incident_id=incident_id,
+            file_name=file_name,
+            content=report_text.encode("utf-8"),
+            content_type="text/plain",
+        )
+
+        if not upload_success:
+            logger.error("Failed to attach Splunk evidence to %s", incident_num)
+            return False
+
+        evidence["attachment_name"] = file_name
+        work_note = self.analyzer.format_evidence_work_note(evidence)
+        if not self.snow_client.add_work_note_to_incident(incident_id, work_note):
+            logger.warning("Splunk evidence attached to %s but work note could not be added", incident_num)
+
+        return True
 
     def _attempt_incident_closure(self, incident: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -384,6 +452,7 @@ class IncidentProcessor:
             f"Successful Analyses: {results.get('successful_analyses', 0)}",
             f"  └─ Comments Posted: {results.get('comments_posted', 0)} (New/Updated)",
             f"  └─ Comments Skipped: {results.get('comments_skipped', 0)} (Already analyzed)",
+            f"  └─ Evidence Attached: {results.get('evidence_attached', 0)}",
             f"Reassigned: {results.get('reassigned', 0)}",
             f"Auto-Closed: {results.get('closed', 0)}",
             f"Errors: {results.get('errors', 0)}",
@@ -400,11 +469,12 @@ class IncidentProcessor:
                 closed_badge = "🔒 CLOSED" if incident.get("closed") else ""
                 reassigned_badge = "↗ REASSIGNED" if incident.get("reassigned") else ""
                 comment_badge = "💬 COMMENT" if incident.get("comment_posted") else ""
+                evidence_badge = "📎 EVIDENCE" if incident.get("evidence_attached") else ""
                 state_display = incident.get("state_name", incident.get("state", "Unknown"))
                 summary_lines.append(
                     f"  {status} {incident.get('incident_number', 'N/A')} [{state_display}]: "
                     f"Confidence {incident.get('analysis', {}).get('confidence', 0)}% "
-                    f"{comment_badge} {reassigned_badge} {closed_badge}".strip()
+                    f"{comment_badge} {evidence_badge} {reassigned_badge} {closed_badge}".strip()
                 )
 
         return "\n".join(summary_lines)

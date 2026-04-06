@@ -81,6 +81,51 @@ class TestServiceNowClient(unittest.TestCase):
         result = self.client.add_comment_to_incident("123", "Test comment")
         self.assertFalse(result)
 
+    @patch("src.servicenow_client.requests.Session.patch")
+    def test_add_work_note_success(self, mock_patch):
+        """Test adding work note to incident."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_patch.return_value = mock_response
+
+        result = self.client.add_work_note_to_incident("123", "Evidence note")
+        self.assertTrue(result)
+
+    @patch("src.servicenow_client.requests.Session.post")
+    def test_upload_attachment_success(self, mock_post):
+        """Test uploading an attachment to incident."""
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_post.return_value = mock_response
+
+        result = self.client.upload_attachment_to_incident(
+            "123",
+            "evidence.txt",
+            b"evidence-body",
+        )
+        self.assertTrue(result)
+        mock_post.assert_called_once()
+        _, kwargs = mock_post.call_args
+        self.assertEqual(kwargs["params"]["table_name"], "incident")
+        self.assertEqual(kwargs["params"]["table_sys_id"], "123")
+        self.assertEqual(kwargs["params"]["file_name"], "evidence.txt")
+        self.assertEqual(kwargs["headers"]["Content-Type"], "text/plain")
+        self.assertEqual(kwargs["data"], b"evidence-body")
+
+    @patch("src.servicenow_client.requests.Session.get")
+    def test_list_attachments_for_incident(self, mock_get):
+        """Test listing incident attachments."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "result": [{"file_name": "evidence.txt"}]
+        }
+        mock_get.return_value = mock_response
+
+        attachments = self.client.list_attachments_for_incident("123")
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]["file_name"], "evidence.txt")
+
     def test_get_category_options(self):
         """Test getting category options."""
         categories = self.client.get_category_options()

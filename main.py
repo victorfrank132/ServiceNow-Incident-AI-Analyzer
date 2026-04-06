@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from src.servicenow_client import ServiceNowClient
 from src.incident_analyzer import IncidentAnalyzer
 from src.incident_processor import IncidentProcessor
+from src.splunk_client import build_splunk_client_from_env
 from src.logging import setup_logging
 from src.utils import load_config, load_team_mappings, validate_config, ensure_directories_exist
 
@@ -101,11 +102,18 @@ def main():
             nvidia_api_key=nvidia_api_key
         )
 
+        splunk_client = build_splunk_client_from_env(config.get("splunk", {}))
+        if splunk_client:
+            logger.info("Splunk evidence retrieval enabled")
+        else:
+            logger.info("Splunk evidence retrieval disabled or not configured")
+
         # Initialize processor
         incident_config = config.get("incident_processing", {})
         processor = IncidentProcessor(
             servicenow_client=snow_client,
             analyzer=analyzer,
+            splunk_client=splunk_client,
             auto_reassign=config.get("analysis", {}).get("auto_reassign", True),
             auto_close=config.get("analysis", {}).get("auto_close", True),
             rate_limit_delay=incident_config.get("rate_limit_delay_seconds", 1)

@@ -51,6 +51,12 @@ class ServiceNowClient:
             "Accept": "application/json",
         }
 
+    def _get_accept_headers(self) -> Dict[str, str]:
+        """Return headers for non-JSON uploads/downloads."""
+        return {
+            "Accept": "application/json",
+        }
+
     def get_new_incidents(self, state: List[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Fetch new/open incidents from ServiceNow.
@@ -158,6 +164,114 @@ class ServiceNowClient:
         except Exception as e:
             logger.error(f"Error adding comment: {str(e)}")
             return False
+
+    def add_work_note_to_incident(self, incident_id: str, note: str) -> bool:
+        """
+        Add a work note to an incident.
+
+        Args:
+            incident_id: ServiceNow incident sys_id
+            note: Work note text
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            response = self.session.patch(
+                f"{self.api_url}/table/incident/{incident_id}",
+                headers=self._get_headers(),
+                json={"work_notes": note},
+                timeout=self.timeout
+            )
+
+            if response.status_code == 200:
+                logger.info(f"Added work note to incident {incident_id}")
+                return True
+
+            logger.error(f"Error adding work note to {incident_id}: {response.status_code}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error adding work note: {str(e)}")
+            return False
+
+    def upload_attachment_to_incident(
+        self,
+        incident_id: str,
+        file_name: str,
+        content: bytes,
+        content_type: str = "text/plain",
+    ) -> bool:
+        """
+        Upload an attachment to a ServiceNow incident.
+
+        Args:
+            incident_id: ServiceNow incident sys_id
+            file_name: Name of the attachment file
+            content: File bytes
+            content_type: MIME type
+
+        Returns:
+            True if upload succeeds, False otherwise
+        """
+        try:
+            response = self.session.post(
+                f"{self.instance_url}/api/now/attachment/file",
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": content_type,
+                },
+                params={
+                    "table_name": "incident",
+                    "table_sys_id": incident_id,
+                    "file_name": file_name,
+                },
+                data=content,
+                timeout=self.timeout,
+            )
+
+            if response.status_code in (200, 201):
+                logger.info(f"Uploaded attachment {file_name} to incident {incident_id}")
+                return True
+
+            logger.error(f"Error uploading attachment to {incident_id}: {response.status_code} - {response.text}")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error uploading attachment: {str(e)}")
+            return False
+
+    def list_attachments_for_incident(self, incident_id: str) -> List[Dict[str, Any]]:
+        """
+        List attachments for a ServiceNow incident.
+
+        Args:
+            incident_id: ServiceNow incident sys_id
+
+        Returns:
+            List of attachment dictionaries
+        """
+        try:
+            response = self.session.get(
+                f"{self.instance_url}/api/now/attachment",
+                headers=self._get_accept_headers(),
+                params={
+                    "table_name": "incident",
+                    "table_sys_id": incident_id,
+                    "sysparm_limit": 100,
+                },
+                timeout=self.timeout,
+            )
+
+            if response.status_code == 200:
+                return response.json().get("result", [])
+
+            logger.error(f"Error listing attachments for {incident_id}: {response.status_code}")
+            return []
+
+        except Exception as e:
+            logger.error(f"Error listing attachments: {str(e)}")
+            return []
 
     def update_assignment_group(self, incident_id: str, assignment_group: str) -> bool:
         """

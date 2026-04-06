@@ -20,3 +20,12 @@ logging:
   level: "INFO"
   format: "json"
   file_path: "logs/incident_agent.log"
+
+splunk:
+  enabled: true
+  indexes:
+    - "api_ui_logs"
+  app: "search"
+  owner: "nobody"
+  lookback: "-30d"
+  max_results: 5

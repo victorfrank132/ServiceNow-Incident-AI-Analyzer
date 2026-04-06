@@ -1,7 +1,7 @@
 """Tests for incident analyzer and processor."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 from src.mock_kb import MockKnowledgeBase
 from src.incident_analyzer import IncidentAnalyzer
 
@@ -51,13 +51,11 @@ class TestIncidentAnalyzer(unittest.TestCase):
             "Application": "Application-Support",
             "default": "General-Support"
         }
-        
-        # Mock OpenAI API to avoid actual API calls
-        with patch("src.incident_analyzer.OpenAI"):
-            self.analyzer = IncidentAnalyzer(
-                openai_api_key="test_key",
-                team_mappings=self.team_mappings
-            )
+        self.analyzer = IncidentAnalyzer(
+            openai_api_key="test_key",
+            team_mappings=self.team_mappings,
+            llm=Mock()
+        )
 
     def test_analyzer_initialization(self):
         """Test analyzer initialization."""
@@ -76,10 +74,23 @@ class TestIncidentAnalyzer(unittest.TestCase):
         }
         similar = [{"title": "DB Connection Timeout"}]
 
-        comment = self.analyzer.format_analysis_comment(analysis, similar)
+        evidence = {
+            "search_mode": "exact",
+            "match_count": 2,
+            "attachment_name": "splunk_evidence_INC0001.txt",
+            "top_event": {
+                "application": "CASUALTY",
+                "service_name": "createSession",
+                "error_message": "Timeout"
+            }
+        }
+
+        comment = self.analyzer.format_analysis_comment(analysis, similar, evidence_summary=evidence)
         self.assertIn("Database", comment)
         self.assertIn("85%", comment)
         self.assertIn("DBA-Team", comment)
+        self.assertIn("Splunk Evidence", comment)
+        self.assertIn("splunk_evidence_INC0001.txt", comment)
 
     def test_get_default_value(self):
         """Test getting default values."""
@@ -88,6 +99,22 @@ class TestIncidentAnalyzer(unittest.TestCase):
 
         default_conf = self.analyzer._get_default_value("confidence")
         self.assertEqual(default_conf, 50)
+
+    def test_format_evidence_work_note(self):
+        """Test formatting an evidence work note."""
+        note = self.analyzer.format_evidence_work_note({
+            "search_mode": "similar",
+            "match_count": 3,
+            "attachment_name": "evidence.txt",
+            "query": "search index=api_ui_logs",
+            "top_event": {
+                "application": "CASUALTY",
+                "service_name": "createSession",
+                "error_message": "Timeout"
+            }
+        })
+        self.assertIn("AI Evidence Attachment", note)
+        self.assertIn("evidence.txt", note)
 
 
 if __name__ == "__main__":

@@ -2,11 +2,8 @@
 
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain_core.messages import HumanMessage
-
-from langchain_core.tools import tool
 from src.mock_kb import MockKnowledgeBase
 from src.logging import setup_llm_analysis_logging
 
@@ -17,7 +14,13 @@ llm_logger = setup_llm_analysis_logging()
 class IncidentAnalyzer:
     """Analyzes incidents using LLM and determines recommendations."""
 
-    def __init__(self, openai_api_key: str, team_mappings: Dict[str, str], nvidia_api_key: str = None):
+    def __init__(
+        self,
+        openai_api_key: str,
+        team_mappings: Dict[str, str],
+        nvidia_api_key: str = None,
+        llm: Optional[Any] = None,
+    ):
         """
         Initialize the incident analyzer.
 
@@ -26,7 +29,7 @@ class IncidentAnalyzer:
             team_mappings: Mapping of categories to assignment groups
             nvidia_api_key: NVIDIA API key for ChatNVIDIA
         """
-        self.llm = ChatNVIDIA(
+        self.llm = llm or ChatNVIDIA(
             model="openai/gpt-oss-120b",
             api_key=nvidia_api_key,
             temperature=1,
@@ -76,7 +79,7 @@ class IncidentAnalyzer:
             lines.append(f"  Steps: {', '.join(incident['resolution_steps'][:2])}")
         return "\n".join(lines)
 
-    def analyze_incident(self, incident: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_incident(self, incident: Dict[str, Any], evidence_context: str = "") -> Dict[str, Any]:
         """
         Analyze an incident and return recommendations.
 
@@ -108,6 +111,9 @@ Priority: {incident.get('priority', 'Unknown')}
 
 Similar Past Incidents from KB:
 {self._format_kb_context(similar)}
+
+Splunk Evidence Context:
+{evidence_context or "No relevant Splunk evidence found."}
 
 Please determine:
 1. Most appropriate incident category
@@ -280,7 +286,12 @@ Respond in JSON format with fields: category, root_cause, resolution_steps (list
         }
         return defaults.get(field, "")
 
-    def format_analysis_comment(self, analysis: Dict[str, Any], similar_incidents: List[Dict[str, Any]]) -> str:
+    def format_analysis_comment(
+        self,
+        analysis: Dict[str, Any],
+        similar_incidents: List[Dict[str, Any]],
+        evidence_summary: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Format analysis into a readable comment for the incident ticket.
 
@@ -311,7 +322,55 @@ Respond in JSON format with fields: category, root_cause, resolution_steps (list
             for incident in similar_incidents[:3]:
                 comment_parts.append(f"  - {incident.get('title', 'N/A')}")
 
+        if evidence_summary:
+            strategy = evidence_summary.get("search_strategy", "")
+            strategy_label = strategy.replace("_", " ") if strategy else "n/a"
+            comment_parts.append("")
+            comment_parts.append("Splunk Evidence:")
+            comment_parts.append(f"  Match Mode: {evidence_summary.get('search_mode', 'none')}")
+            if evidence_summary.get("search_strategy"):
+                comment_parts.append(f"  Match Strategy: {strategy_label}")
+            comment_parts.append(f"  Matches Found: {evidence_summary.get('match_count', 0)}")
+            if evidence_summary.get("top_event"):
+                top_event = evidence_summary["top_event"]
+                comment_parts.append(
+                    "  Top Match: "
+                    f"{top_event.get('application', 'N/A')} / "
+                    f"{top_event.get('service_name', 'N/A')} / "
+                    f"{top_event.get('error_message', 'N/A')}"
+                )
+            if evidence_summary.get("attachment_name"):
+                comment_parts.append(f"  Evidence Attachment: {evidence_summary['attachment_name']}")
+
         comment_parts.append("")
         comment_parts.append(f"Recommended Assignment Group: {analysis.get('recommended_assignment_group', 'N/A')}")
 
         return "\n".join(comment_parts)
+
+    def format_evidence_work_note(self, evidence_summary: Dict[str, Any]) -> str:
+        """Format a concise work note describing attached Splunk evidence."""
+        strategy = evidence_summary.get("search_strategy", "")
+        strategy_label = strategy.replace("_", " ") if strategy else "n/a"
+        lines = [
+            "[AI Evidence Attachment]",
+            f"Splunk Match Mode: {evidence_summary.get('search_mode', 'none')}",
+            f"Splunk Match Strategy: {strategy_label}",
+            f"Splunk Matches Found: {evidence_summary.get('match_count', 0)}",
+        ]
+
+        if evidence_summary.get("attachment_name"):
+            lines.append(f"Attached Evidence File: {evidence_summary['attachment_name']}")
+
+        if evidence_summary.get("top_event"):
+            top_event = evidence_summary["top_event"]
+            lines.append(
+                "Top Match: "
+                f"{top_event.get('application', 'N/A')} / "
+                f"{top_event.get('service_name', 'N/A')} / "
+                f"{top_event.get('error_message', 'N/A')}"
+            )
+
+        if evidence_summary.get("query"):
+            lines.append("Splunk search query stored in attachment report.")
+
+        return "\n".join(lines)

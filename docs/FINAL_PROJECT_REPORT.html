@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ServiceNow Incident AI Analyzer Final Project Report</title>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: #1f2937;
+      line-height: 1.55;
+      margin: 48px;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+    h2 {
+      font-size: 20px;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      color: #0f172a;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 4px;
+    }
+    h3 {
+      font-size: 15px;
+      margin-top: 18px;
+      margin-bottom: 6px;
+      color: #111827;
+    }
+    p {
+      margin: 10px 0;
+    }
+    .subtitle {
+      color: #475569;
+      font-size: 13px;
+      margin-bottom: 22px;
+    }
+    .summary-box {
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      padding: 14px 16px;
+      margin: 18px 0 24px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px 0;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    ul, ol {
+      margin: 8px 0 12px 24px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    .code-block {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      border: 1px solid #d1d5db;
+      background: #f8fafc;
+      padding: 10px 12px;
+      margin: 12px 0;
+    }
+    .footer-note {
+      margin-top: 28px;
+      font-size: 11px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <h1>ServiceNow Incident AI Analyzer With Splunk Evidence Enrichment</h1>
+  <div class="subtitle">
+    Final Project Report<br />
+    Prepared on April 6, 2026
+  </div>
+
+  <div class="summary-box">
+    <strong>Executive Summary</strong><br />
+    This project delivers a real-time incident automation solution that receives ServiceNow incident events,
+    enriches them with matching Splunk evidence, generates AI-based incident analysis, writes the evidence and
+    analysis back to the ticket, and reassigns the incident to the correct team. The final implementation was
+    validated live end to end, and the temporary verification incidents used during testing were cleaned up after
+    completion.
+  </div>
+
+  <h2>1. Idea and Project Objective</h2>
+  <p>
+    The core idea behind this project was to move incident handling from a mostly manual, reactive workflow to a
+    near real-time assisted workflow. Instead of waiting for an engineer to read the ticket, inspect logs, guess
+    the likely root cause, and manually route the incident, the system performs those steps automatically within
+    seconds of incident creation.
+  </p>
+  <p>
+    The objective was not only to summarize incidents with AI, but to connect the analysis to operational evidence.
+    That meant integrating ServiceNow for ticket intake and writeback, Splunk Cloud for log retrieval, and a large
+    language model for reasoning, categorization, root cause hypothesis generation, and assignment recommendations.
+  </p>
+
+  <h2>2. Problem Statement</h2>
+  <p>
+    In many real-world IT and business support environments, incidents are created with incomplete technical context.
+    Teams often lose time because they must first identify whether the issue is related to the application, the
+    platform, the database, the integration layer, or an upstream business process. Valuable log evidence sits in
+    another tool, and assignment frequently depends on individual experience rather than a consistent process.
+  </p>
+  <p>
+    This leads to slower triage, repeated handoffs, inconsistent documentation, and delayed resolution. The project
+    addresses this by creating a single automated path from incident intake to evidence-backed analysis and routing.
+  </p>
+
+  <h2>3. Solution Overview</h2>
+  <p>
+    The implemented solution uses a webhook-driven architecture. When a new incident is inserted in ServiceNow, a
+    Business Rule sends the incident payload to a locally hosted Flask receiver through ngrok. The application then
+    fetches the full incident record, extracts identifiers such as request ID, quote number, application name,
+    service name, and environment, and searches Splunk Cloud for exact or similar matches.
+  </p>
+  <p>
+    If matching evidence is found, the system creates a text evidence report, uploads it back to the incident as an
+    attachment, adds a work note describing the evidence, runs AI analysis using the incident plus the Splunk
+    context, posts a structured incident analysis comment, and updates the assignment group when confidence is high.
+  </p>
+
+  <h2>4. End-to-End Process</h2>
+  <ol>
+    <li>A new incident is inserted in the ServiceNow PDI.</li>
+    <li>A ServiceNow Business Rule runs after insert and reads the webhook URL from a system property.</li>
+    <li>The Business Rule sends the incident event to the local receiver through ngrok.</li>
+    <li>The webhook receiver fetches the full incident details from ServiceNow.</li>
+    <li>The processor extracts strong identifiers from the incident text and structured fields.</li>
+    <li>Splunk is queried using exact identifier matching first, then contextual exact matching, then similarity search.</li>
+    <li>A Splunk evidence report is generated and uploaded to the ServiceNow incident as an attachment.</li>
+    <li>A work note is added to indicate what evidence was attached and how it was matched.</li>
+    <li>The AI analyzer receives both the incident and evidence context and produces category, root cause, steps, confidence, and assignment recommendation.</li>
+    <li>The AI analysis is posted back to the incident as a structured comment.</li>
+    <li>The incident is reassigned to the recommended team when the confidence threshold is met.</li>
+  </ol>
+
+  <div class="code-block">ServiceNow Incident Insert
+  -> Business Rule: Incident AI Analyzer Webhook
+  -> System Property: x_servicenow_incident_analyzer.webhook_url
+  -> ngrok tunnel
+  -> Flask webhook receiver on 127.0.0.1:8081
+  -> ServiceNow incident fetch
+  -> Splunk evidence retrieval
+  -> Evidence attachment + work note
+  -> AI analysis
+  -> Comment writeback
+  -> Assignment update</div>
+
+  <h2>5. Tools and Tech Stack</h2>
+  <table>
+    <tr>
+      <th>Layer</th>
+      <th>Tool / Technology</th>
+      <th>Purpose</th>
+    </tr>
+    <tr>
+      <td>Ticketing Platform</td>
+      <td>ServiceNow Personal Developer Instance</td>
+      <td>Incident source, comment/work note destination, assignment update target, evidence attachment target</td>
+    </tr>
+    <tr>
+      <td>Event Triggering</td>
+      <td>ServiceNow Business Rule plus system property</td>
+      <td>Triggers real-time webhook processing after incident insert</td>
+    </tr>
+    <tr>
+      <td>Transport</td>
+      <td>ngrok</td>
+      <td>Exposes the local webhook receiver to the public internet for ServiceNow callbacks</td>
+    </tr>
+    <tr>
+      <td>Application Runtime</td>
+      <td>Python 3 and Flask</td>
+      <td>Hosts the webhook receiver and orchestrates the processing flow</td>
+    </tr>
+    <tr>
+      <td>Platform Integration</td>
+      <td>Python requests library</td>
+      <td>Used for ServiceNow API calls and Splunk Cloud interactions</td>
+    </tr>
+    <tr>
+      <td>Log Platform</td>
+      <td>Splunk Cloud</td>
+      <td>Provides exact and similar evidence logs tied to incident identifiers</td>
+    </tr>
+    <tr>
+      <td>AI Reasoning</td>
+      <td>NVIDIA GPT-OSS-120B via ChatNVIDIA</td>
+      <td>Generates root cause hypotheses, resolution steps, categorization, confidence, and assignment recommendations</td>
+    </tr>
+    <tr>
+      <td>Testing</td>
+      <td>Python unittest and compileall</td>
+      <td>Validates logic, integrations, and basic code health</td>
+    </tr>
+    <tr>
+      <td>Documentation</td>
+      <td>README, quickstart guides, technical flow docs</td>
+      <td>Provides implementation clarity, operating instructions, and handoff readiness</td>
+    </tr>
+  </table>
+
+  <h2>6. Key Challenges and How They Were Solved</h2>
+  <table>
+    <tr>
+      <th>Challenge</th>
+      <th>Impact</th>
+      <th>Resolution</th>
+    </tr>
+    <tr>
+      <td>Webhook not firing correctly from ServiceNow</td>
+      <td>The local receiver was not reliably being called, which blocked real-time automation.</td>
+      <td>The ServiceNow Business Rule was corrected to use RESTMessageV2, the proper POST method, and after-insert execution.</td>
+    </tr>
+    <tr>
+      <td>Receiver writeback timing issues</td>
+      <td>Early webhook processing attempts could not comment on the incident reliably.</td>
+      <td>The flow was adjusted so the rule runs after the incident is fully available for REST updates.</td>
+    </tr>
+    <tr>
+      <td>Splunk Cloud authentication complexity</td>
+      <td>Direct management-port access was not available from the local environment.</td>
+      <td>A Splunk Web proxy login flow using cookies and CSRF handling was implemented to support authenticated search.</td>
+    </tr>
+    <tr>
+      <td>Exact match search returning noisy results</td>
+      <td>Broad OR matching across application and service fields produced unrelated logs.</td>
+      <td>The exact match strategy was redesigned to prioritize strong identifiers such as request ID and quote number first.</td>
+    </tr>
+    <tr>
+      <td>Splunk multi-value rows appearing duplicated</td>
+      <td>Evidence context and attachments became hard to read.</td>
+      <td>Search result normalization was added to collapse duplicate multi-value fields into clean scalar values.</td>
+    </tr>
+    <tr>
+      <td>ServiceNow attachment upload path mismatch</td>
+      <td>Evidence was found, but the attachment was not actually written back to the ticket.</td>
+      <td>The integration was corrected to use raw byte uploads with query parameters instead of multipart form upload.</td>
+    </tr>
+    <tr>
+      <td>Local ngrok bootstrap SSL issue</td>
+      <td>The older automatic tunnel setup path was unreliable on this machine.</td>
+      <td>The supported runtime was shifted to manual ngrok with a local listener on port 8081.</td>
+    </tr>
+  </table>
+
+  <h2>7. Real-World Implementation and Business Value</h2>
+  <p>
+    The implemented pattern is highly applicable in production support, insurance operations, banking platforms,
+    healthcare systems, retail platforms, and enterprise integration environments. In these settings, incidents often
+    originate from customer-facing failures but require evidence from a centralized logging system before they can be
+    triaged effectively.
+  </p>
+  <h3>Practical Real-World Uses</h3>
+  <ul>
+    <li>Application support teams can receive incidents that already contain evidence-based analysis and initial routing.</li>
+    <li>Operations teams can reduce mean time to triage because the first responder does not need to begin from a blank ticket.</li>
+    <li>Support managers can standardize the quality of incident documentation across shifts and analysts.</li>
+    <li>Business-facing support teams can create tickets using business language while the system translates that into technical context.</li>
+    <li>Audit and compliance teams benefit because the ticket contains both the AI reasoning and the attached evidence used during triage.</li>
+  </ul>
+
+  <h3>Expected Business Benefits</h3>
+  <ul>
+    <li>Reduced time spent manually searching logs</li>
+    <li>Faster assignment to the correct support team</li>
+    <li>Improved consistency in incident comments and action history</li>
+    <li>Clearer documentation for escalation and post-incident review</li>
+    <li>Better operational scalability as ticket volume grows</li>
+  </ul>
+
+  <h2>8. Final Outcome and Live Validation</h2>
+  <p>
+    The final implementation was validated in a live ServiceNow PDI and Splunk Cloud environment. The confirmed
+    success case was a temporary verification incident created on April 5 to 6, 2026. During that run, the system:
+  </p>
+  <ul>
+    <li>received the incident through the webhook path in real time</li>
+    <li>identified the correct exact-match Splunk evidence using request ID and quote number</li>
+    <li>attached a text evidence report back to the incident</li>
+    <li>added a dedicated evidence work note</li>
+    <li>posted an AI incident analysis comment</li>
+    <li>reassigned the incident to Application Development</li>
+  </ul>
+  <p>
+    After verification, the temporary test and debugging incidents used during implementation were removed from the
+    ServiceNow instance to leave the environment clean.
+  </p>
+
+  <h2>9. Recommendations for Production Rollout</h2>
+  <ul>
+    <li>Replace the local ngrok tunnel with a stable hosted endpoint or an internal gateway for long-term deployment.</li>
+    <li>Move secrets from local environment files into a secure secret manager or platform credential vault.</li>
+    <li>Add stronger incident field mapping so custom ServiceNow fields can be searched without relying on free text.</li>
+    <li>Persist structured evidence metadata for reporting and analytics.</li>
+    <li>Introduce role-based controls around auto-reassignment and future auto-resolution logic.</li>
+    <li>Expand testing to include scheduled integration smoke tests against non-production ServiceNow and Splunk environments.</li>
+  </ul>
+
+  <h2>10. Conclusion</h2>
+  <p>
+    This project demonstrates a practical AI-assisted operations workflow rather than a theoretical prototype. It
+    connects the ticketing layer, evidence layer, and reasoning layer into a single incident-processing pipeline.
+    The result is a more actionable, evidence-backed, and scalable incident triage process that aligns well with
+    real production support needs.
+  </p>
+
+  <div class="footer-note">
+    Prepared as the final presentable handoff document for the ServiceNow Incident AI Analyzer project.
+  </div>
+</body>
+</html>
