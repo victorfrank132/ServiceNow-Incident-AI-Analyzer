@@ -1,0 +1,31 @@
+servicenow:
+  instance_url: "https://dev218421.service-now.com"
+  api_version: "v2"
+  auth_type: "basic"
+  polling_interval_seconds: 300  # 5 minutes
+
+incident_processing:
+  max_incidents_per_run: 10
+  include_state: ["1", "2"]  # 1=New, 2=In Progress
+  rate_limit_delay_seconds: 1
+
+analysis:
+  enabled: true
+  auto_reassign: true
+  confidence_threshold: 0.6
+  include_similar_incidents: true
+  similar_incidents_count: 3
+
+logging:
+  level: "INFO"
+  format: "json"
+  file_path: "logs/incident_agent.log"
+
+splunk:
+  enabled: true
+  indexes:
+    - "api_ui_logs"
+  app: "search"
+  owner: "nobody"
+  lookback: "-30d"
+  max_results: 5

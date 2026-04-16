@@ -1,0 +1,117 @@
+<mxfile host="app.diagrams.net" modified="2026-04-06T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="incident-ai-top-down" name="Incident AI Top Down Parallel Flow">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="&lt;font style=&quot;font-size:24px;&quot;&gt;&lt;b&gt;ServiceNow Incident AI Analyzer&lt;/b&gt;&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="180" y="20" width="840" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="3" value="Top-down runtime and execution flow with parallel local processes" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=14;fontColor=#4B5563;" vertex="1" parent="1">
+          <mxGeometry x="170" y="60" width="860" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="10" value="&lt;b&gt;Parallel Runtime Setup&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECFF;strokeColor=#8B5CF6;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="170" y="110" width="860" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;Terminal 1&lt;/b&gt;&lt;br/&gt;start.py&lt;br/&gt;Python + Flask Receiver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECFF;strokeColor=#8B5CF6;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="220" y="190" width="320" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;Terminal 2&lt;/b&gt;&lt;br/&gt;ngrok http 8081&lt;br/&gt;Public HTTPS Tunnel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4ECFF;strokeColor=#8B5CF6;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="660" y="190" width="320" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="13" value="Parallel local processes must be running together before ServiceNow can reach the webhook." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#6B7280;" vertex="1" parent="1">
+          <mxGeometry x="220" y="300" width="760" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="20" value="&lt;b&gt;1. Incident Created&lt;/b&gt;&lt;br/&gt;ServiceNow Incident Table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="370" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="21" value="&lt;b&gt;2. After-Insert Trigger&lt;/b&gt;&lt;br/&gt;Business Rule + System Property" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="490" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="22" value="&lt;b&gt;3. ServiceNow Sends HTTPS Event&lt;/b&gt;&lt;br/&gt;POST to ngrok public URL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="610" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="23" value="&lt;b&gt;4. ngrok Forwards to Flask&lt;/b&gt;&lt;br/&gt;Public tunnel to localhost:8081" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="730" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="24" value="&lt;b&gt;5. Fetch Full Incident&lt;/b&gt;&lt;br/&gt;ServiceNow REST API + requests" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="850" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="25" value="&lt;b&gt;6. Retrieve Splunk Evidence&lt;/b&gt;&lt;br/&gt;SplunkClient + exact/fallback search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="970" width="440" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="26" value="&lt;b&gt;7. Build AI Context + Run LLM&lt;/b&gt;&lt;br/&gt;Mock KB + LangChain + ChatNVIDIA + NVIDIA AI Endpoints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1090" width="440" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="27" value="&lt;b&gt;8. Guardrails + Deduplication&lt;/b&gt;&lt;br/&gt;Low-signal detection + confidence rules + cache check" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FED7AA;strokeColor=#EA580C;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="430" y="1225" width="340" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="28" value="&lt;b&gt;9. Manual Review Fallback&lt;/b&gt;&lt;br/&gt;Low confidence, non-destructive path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FED7AA;strokeColor=#EA580C;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1275" width="250" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="29" value="&lt;b&gt;10. Write Back to ServiceNow&lt;/b&gt;&lt;br/&gt;Comment + Work Note + Attachment + Reassignment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CCFBF1;strokeColor=#0F766E;strokeWidth=1.5;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1410" width="440" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="30" value="&lt;b&gt;Artifacts&lt;/b&gt;&lt;br/&gt;webhook.log&lt;br/&gt;llm_analysis.log&lt;br/&gt;analyzed_incidents.json" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E5E7EB;strokeColor=#6B7280;strokeWidth=1.5;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="900" y="1255" width="180" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="12" target="11">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="41" value="Traffic forward" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" vertex="1" connectable="0" parent="40">
+          <mxGeometry x="0.02" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="50" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="20" target="21">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="51" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="21" target="22">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="52" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="22" target="23">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="23" target="24">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="54" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="24" target="25">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="25" target="26">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="56" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="26" target="27">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="57" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="27" target="28">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="58" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="27" target="29">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeColor=#6B7280;strokeWidth=2;" edge="1" parent="1" source="28" target="29">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="60" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#9CA3AF;strokeWidth=1.5;" edge="1" parent="1" source="26" target="30">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="61" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#9CA3AF;strokeWidth=1.5;" edge="1" parent="1" source="27" target="30">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="62" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#9CA3AF;strokeWidth=1.5;" edge="1" parent="1" source="29" target="30">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="70" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br/&gt;Blue: ServiceNow source and trigger&lt;br/&gt;Yellow: Local runtime and transport path&lt;br/&gt;Green: Splunk and AI enrichment&lt;br/&gt;Orange: Guardrails and confidence controls&lt;br/&gt;Teal: ServiceNow write-back actions&lt;br/&gt;Gray: Logs and cache artifacts&lt;br/&gt;Purple: Parallel runtime processes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F9FAFB;strokeColor=#D1D5DB;fontSize=12;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="160" y="1560" width="880" height="140" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

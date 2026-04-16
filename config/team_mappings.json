@@ -1,0 +1,17 @@
+{
+  "Hardware": "Incident Management",
+  "Database": "Database",
+  "Database Failure": "Database",
+  "Database Issue": "Database",
+  "Networking": "Network",
+  "Network": "Network",
+  "Network Issue": "Network",
+  "Application": "Application Development",
+  "Software": "Incident Management",
+  "Email": "Incident Management",
+  "SAP": "Application Development",
+  "Inquiry": "Incident Management",
+  "Server": "Incident Management",
+  "default": "Incident Management"
+}
+

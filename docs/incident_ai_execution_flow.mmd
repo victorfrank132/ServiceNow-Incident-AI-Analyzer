@@ -1,0 +1,11 @@
+flowchart LR
+    A[Incident Created<br/>ServiceNow Incident Table]
+    B[Business Rule Trigger<br/>ServiceNow Business Rule + System Property]
+    C[Webhook Received<br/>ngrok + Python Flask]
+    D[Fetch Incident Details<br/>ServiceNow REST API + requests]
+    E[Collect Splunk Evidence<br/>SplunkClient + Splunk REST API]
+    F[Generate AI Analysis<br/>Mock KB + LangChain + ChatNVIDIA]
+    G[Guardrails and Deduplication<br/>Low Signal Check + Cache]
+    H[Write Back to ServiceNow<br/>Comments + Work Notes + Attachments + Reassignment]
+
+    A --> B --> C --> D --> E --> F --> G --> H
